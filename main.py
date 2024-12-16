@@ -1,7 +1,7 @@
 import pygame
 pygame.init()
 import sys
-from utils.constants import BLACK, WHITE, screen, WIDTH, HEIGHT
+from utils.constants import BLACK, WHITE, screen, WIDTH, HEIGHT, PLATFORM_HEIGHT, PLAYER_SIZE
 from entities.player import Player
 from game_state import GameState
 from camera import Camera
@@ -15,17 +15,19 @@ def main():
     camera = Camera(HEIGHT)
     level_generator = LevelGenerator(WIDTH, HEIGHT)
     score_manager = ScoreManager()
+    bg = pygame.transform.scale(pygame.image.load('assets/bg.png'),(WIDTH,HEIGHT))
     
     def reset_game():
-        nonlocal player, platforms, enemies, camera
+        nonlocal player, platforms, enemies, camera, player_pos_b
         player = Player(WIDTH // 2, HEIGHT - 100)
         camera = Camera(HEIGHT)
         platforms = level_generator.generate_initial_platforms()
         enemies = []
         score_manager.score = 0
-        score_manager.highest_y = 0
+        player_pos_b = 1
+        score_manager.highest_y = PLATFORM_HEIGHT + PLAYER_SIZE
     
-    # Initialize game objects
+    
     player = None
     platforms = []
     enemies = []
@@ -49,50 +51,51 @@ def main():
                     sys.exit()
         
         if game_state.is_playing:
-            # Update
+            
             player.update(WIDTH)
             camera.update(player)
             
-            # Generate new platforms and enemies
+            
             if player.rect.top < HEIGHT * player_pos_b:
                 player_pos_b -= 1
                 new_platforms, new_enemies = level_generator.generate_new_section(camera.y)
                 platforms.extend(new_platforms)
                 enemies.extend(new_enemies)
             
-            # Update enemies
+            
             for enemy in enemies:
                 enemy.update()
             
-            # Check collisions
+            
             player.handle_platform_collisions(platforms)
             
             if player.check_enemy_collisions(enemies) or player.rect.top > camera.y + HEIGHT:
                 game_state.game_over()
             
-            # Clean up off-screen objects
+            
             platforms = [p for p in platforms if p.rect.y < (camera.y + HEIGHT)]
             enemies = [e for e in enemies if e.rect.y < (camera.y + HEIGHT)]
             
-            # Update score
-            score_manager.update_score(-player.rect.top)
+            
+            score_manager.update_score(abs(player.rect.top) if player.rect.top <= 0 else HEIGHT-player.rect.top)
         
-        # Draw
+        
         screen.fill(BLACK)
+        screen.blit(bg,(0,0))
         
         if game_state.is_playing:
-            # Draw game objects
+            
             for platform in platforms:
                 platform.draw(screen, camera.y)
             for enemy in enemies:
                 enemy.draw(screen, camera.y)
             player.draw(screen, camera.y)
             
-            # Draw score
+            
             score_text = font.render(f"Score: {score_manager.score}", True, WHITE)
             screen.blit(score_text, (10, 10))
         else:
-            # Draw start/game over screen
+            
             if game_state.game_over_v:
                 text = font.render(f"Game Over! Score: {score_manager.score}", True, WHITE)
                 instruction_text = font.render("Press SPACE to Restart", True, WHITE)
